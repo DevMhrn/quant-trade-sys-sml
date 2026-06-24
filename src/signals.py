@@ -34,11 +34,11 @@ def ma_crossover_signal(df: pd.DataFrame, short_window: int = 20,
 
 
 def mean_reversion_signal(df: pd.DataFrame, window: int = 20,
-                          band: float = 0.05,
+                          band: float = 0.03,
                           price_col: str = "Close") -> pd.DataFrame:
     """
-    Strategy B — buy when price falls more than `band` (default 5%) below its
-    rolling mean, exit when it returns to within the band. 0/1 signal.
+    Strategy B — buy when price falls more than `band` (default 3%) below its
+    rolling mean, exit when it returns above the mean. 0/1 signal.
     """
     df = df.copy()
     ma = df[price_col].rolling(window).mean()

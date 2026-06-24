@@ -27,8 +27,20 @@ and runs the pipeline against real equity data.
 ├── plots/                       # generated charts (10)
 ├── report/
 │   └── final_report.md          # write-up — covers all required sections
+├── verify.py                    # 49-check invariant test suite
 └── README.md
 ```
+
+## Verifying the bookkeeping
+
+To run the full invariant suite (data integrity, no look-ahead bias,
+signal logic, execution rules, backtest formulas, Sharpe by hand):
+
+```bash
+.venv/bin/python verify.py
+```
+
+Should print `=== SUMMARY: 49 PASS / 0 FAIL ===`.
 
 ## Setup
 

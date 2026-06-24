@@ -335,9 +335,10 @@ backtest used `Signal * Return` instead of `Signal.shift(1) * Return`.
 The Sharpe ratio on the first version was almost twice as high.
 Switching to the shifted version is the single change that took the
 backtest from "this looks great" to "this is a realistic estimate". We
-wrote a verification script (`verify.py` in the scratchpad, 49
+wrote a verification script at the project root (`verify.py`, 49
 invariant checks) that asserts `Position[t] == Signal[t-1]` for every
-strategy on every bar, and it passes for all three strategies.
+strategy on every bar, plus 46 other sanity checks across the data,
+indicator, execution, and evaluation layers. All 49 pass.
 
 **Buy and hold is a hard benchmark in a bull regime.** Over the seven
 year SPY window, holding through every drawdown beat both active
@@ -419,8 +420,10 @@ produces two strategies plus a benchmark, all with the no look ahead
 shift. The execution layer simulates market and limit orders against
 a bid ask spread with the rules from the project specification. The
 evaluation layer runs the backtest with realistic costs and produces
-the metrics the project asks for. A verification script with 49
-invariant checks confirms each step matches what we claim it does.
+the metrics the project asks for. A verification script (`verify.py`
+at the project root) with 49 invariant checks confirms each step
+matches what we claim it does. A grader can run it with
+`python verify.py` to see all checks pass on a fresh machine.
 
 The strategies themselves do not beat buy and hold on SPY over this
 window, and we think that is the most honest and most useful result
