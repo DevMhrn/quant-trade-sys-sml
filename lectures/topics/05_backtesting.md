@@ -151,6 +151,72 @@ sharpe     = ann_ret / ann_vol if ann_vol > 0 else float("nan")
 The 252 is the number of trading days in a year. Sharpe assumes
 risk-free rate of zero, which is fine for a course project.
 
+## Worked example
+
+The single most important comparison in this course. Same 6-day price
+series, same signal, two ways of computing the strategy return. One
+peeks at the future. One does not.
+
+Start with the data. The signal is just `1 if Return > 0 else 0`, which
+is the silliest possible "strategy" because it requires knowing today's
+return to make today's decision. It is a deliberately broken rule to
+show how look-ahead bias works.
+
+| Day | Close | Return | Signal (broken: 1 if Return>0) |
+|---:|---:|---:|:---:|
+| 1 | 100 | n/a     | n/a |
+| 2 | 102 | 0.0200  | 1 |
+| 3 | 101 | -0.0098 | 0 |
+| 4 | 105 | 0.0396  | 1 |
+| 5 | 103 | -0.0190 | 0 |
+| 6 | 108 | 0.0485  | 1 |
+
+**WRONG version** uses `Signal * Return`. The strategy is told the
+return on day t and then asked to position itself for day t. That is
+cheating.
+
+| Day | Return | Signal | WRONG Strat Ret | WRONG Equity |
+|---:|---:|:---:|---:|---:|
+| 1 | n/a     | n/a | 0.0000  | 1.0000 |
+| 2 | 0.0200  | 1   | 0.0200  | 1.0200 |
+| 3 | -0.0098 | 0   | 0.0000  | 1.0200 |
+| 4 | 0.0396  | 1   | 0.0396  | 1.0604 |
+| 5 | -0.0190 | 0   | 0.0000  | 1.0604 |
+| 6 | 0.0485  | 1   | 0.0485  | 1.1118 |
+
+Total return: **11.18%**. Looks great. It is a lie. The strategy
+"knew" which days would be positive and only held on those days.
+
+**RIGHT version** uses `Signal.shift(1) * Return`. Position on day t is
+decided by the signal at day t-1. No future leak.
+
+| Day | Return | Position (Signal[t-1]) | RIGHT Strat Ret | RIGHT Equity |
+|---:|---:|:---:|---:|---:|
+| 1 | n/a     | n/a | 0.0000  | 1.0000 |
+| 2 | 0.0200  | n/a | 0.0000  | 1.0000 |
+| 3 | -0.0098 | 1   | -0.0098 | 0.9902 |
+| 4 | 0.0396  | 0   | 0.0000  | 0.9902 |
+| 5 | -0.0190 | 1   | -0.0190 | 0.9714 |
+| 6 | 0.0485  | 0   | 0.0000  | 0.9714 |
+
+Total return: **-2.86%**. The strategy lost money. That is the
+truthful number because the signal had no actual predictive value, it
+just relabelled history.
+
+```python
+import pandas as pd
+close = pd.Series([100, 102, 101, 105, 103, 108])
+ret = close.pct_change().fillna(0)
+sig = (ret > 0).astype(int)
+wrong = (sig * ret).cumsum() ; right = (sig.shift(1).fillna(0) * ret).cumsum()
+print("WRONG:", wrong.iloc[-1], " RIGHT:", right.iloc[-1])
+```
+
+The gap on this tiny example is 14 percentage points (11.18% vs -2.86%).
+On real backtests over years, the gap is often 30 to 100% of the
+reported Sharpe. This is the difference between fantasy and reality in
+one table.
+
 ## Common pitfalls
 
 - Forgetting the `.shift(1)`. This is the most expensive mistake in

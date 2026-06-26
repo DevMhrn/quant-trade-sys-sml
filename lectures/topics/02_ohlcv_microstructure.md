@@ -128,6 +128,65 @@ def limit_buy(bar, limit_price):
     return None
 ```
 
+## Worked example
+
+Consider SPY trading at the following quote during a normal session:
+
+| Field | Value |
+|---|---:|
+| Bid | $449.95 |
+| Ask | $450.05 |
+| Mid | $450.00 |
+| Spread | $0.10 (about 2.2 bps) |
+
+You want to trade 100 shares. Here are four scenarios.
+
+**Scenario 1: Market BUY 100 shares.** A market buy fills at the Ask.
+
+```
+Cost = 100 * 450.05 = $45,005
+```
+
+**Scenario 2: Market SELL 100 shares.** A market sell fills at the Bid.
+
+```
+Proceeds = 100 * 449.95 = $44,995
+```
+
+If you did both back-to-back (buy then sell, no price change in between),
+you would lose `45,005 - 44,995 = $10`, which is exactly `spread * size`.
+That is the cost of "crossing the spread" and it shows up on every round
+trip even before commissions.
+
+**Scenario 3: Limit BUY at $449.50, 100 shares.** The limit price is
+below the current Ask of $450.05. The order does not fill immediately.
+It sits in the book waiting for the Ask to drop to $449.50 or lower.
+If the price never reaches that level during the session, the order
+expires unfilled. Cost so far: $0 (no trade), but you also did not get
+the position you wanted.
+
+**Scenario 4: Limit BUY at $450.10, 100 shares.** The limit price is
+above the current Ask of $450.05. The rule says the order fills as long
+as `Ask <= Limit`. So it fills immediately at the Ask of $450.05, not at
+your limit of $450.10. You get the better price, not the worse one.
+
+```
+Cost = 100 * 450.05 = $45,005
+```
+
+Summary of the four scenarios:
+
+| Scenario | Filled? | Fill price | Total cost |
+|---|:---:|---:|---:|
+| Market BUY | Yes | $450.05 | $45,005 |
+| Market SELL | Yes | $449.95 | $44,995 (proceeds) |
+| Limit BUY @ 449.50 | No | n/a | $0 (no fill) |
+| Limit BUY @ 450.10 | Yes | $450.05 | $45,005 |
+
+The takeaway: limit orders trade execution certainty for price control.
+Market orders do the opposite. Every active strategy has to choose
+between the two on every trade.
+
 ## Common pitfalls
 
 - Assuming your fills happen at the close. They do not. Buys fill at

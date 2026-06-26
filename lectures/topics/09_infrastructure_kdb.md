@@ -189,6 +189,69 @@ The KDB+ side handles storage and the heavy filtering. Python
 handles modelling and visualisation. This is the modern division of
 labour.
 
+## Worked example
+
+A 5-row tick table for two symbols on one trading day. In KDB+ this
+would be a single column-oriented table called `trades`.
+
+| time | sym | price | size |
+|---|---|---:|---:|
+| 09:30:01.245 | SPY | 450.05 | 100 |
+| 09:30:01.812 | QQQ | 380.20 | 50  |
+| 09:30:02.100 | SPY | 450.07 | 200 |
+| 09:30:02.890 | QQQ | 380.18 | 75  |
+| 09:30:03.450 | SPY | 450.04 | 150 |
+
+We want the average trade price per symbol. The q query is one line:
+
+```q
+select avg price by sym from trades where date=2024.06.01
+```
+
+Output:
+
+```
+sym  | price
+-----| ------
+SPY  | 450.0533
+QQQ  | 380.19
+```
+
+The same operation in pandas takes more lines and more memory:
+
+```python
+import pandas as pd
+trades = pd.read_csv("trades_2024_06_01.csv", parse_dates=["time"])
+day = trades[trades["time"].dt.date == pd.Timestamp("2024-06-01").date()]
+result = day.groupby("sym")["price"].mean()
+print(result)
+```
+
+For 5 rows this is fine. For 50 million rows (one trading day on a
+major exchange) the pandas version loads everything into RAM, often
+exceeding the machine's memory. KDB+ never loads more than the column
+it needs, and the `where date=...` clause filters at the disk-page
+level before any in-memory work. The same query returns in milliseconds
+on a tick database that pandas could not even open.
+
+A second example. Computing minute bars (OHLC per minute per symbol):
+
+```q
+select open: first price, high: max price, low: min price, close: last price, vol: sum size
+  by 1 xbar time.minute, sym
+  from trades
+```
+
+That single line replaces about 20 lines of pandas resampling code,
+and runs orders of magnitude faster on real-sized data.
+
+The takeaway: KDB+ is built on three ideas that make it fast for
+time-series. Columns are stored separately so you only read what you
+need. Tables are typed and dense (no row overhead). The query language
+is built around time as a first-class concept (`xbar`, `asof`, `wj`).
+For ad-hoc research on small data, pandas is friendlier. For
+production-scale tick data, KDB+ is what the industry runs on.
+
 ## Common pitfalls
 
 - Loading tick data into pandas without filtering it down at the

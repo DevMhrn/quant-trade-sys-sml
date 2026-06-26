@@ -156,6 +156,89 @@ drawdown = equity / equity.cummax() - 1
 max_dd   = drawdown.min()
 ```
 
+## Worked example
+
+Two assets with the following properties:
+
+| Asset | Annual return | Annual vol |
+|---|---:|---:|
+| A | 10% | 15% |
+| B | 6%  | 8%  |
+
+Correlation between A and B: 0.3.
+
+The portfolio return is just the weighted sum of asset returns:
+
+```
+ret_p = w_A * ret_A + w_B * ret_B
+```
+
+The portfolio volatility is **not** just the weighted sum of vols. It
+uses the two-asset variance formula:
+
+```
+vol_p = sqrt(w_A^2 * v_A^2 + w_B^2 * v_B^2 + 2 * w_A * w_B * corr * v_A * v_B)
+```
+
+Try three weight pairs. Sharpe ratio uses risk-free rate of 0.
+
+**Case 1: 100% A.** Just hold A.
+
+```
+ret_p = 1.0 * 0.10 + 0.0 * 0.06 = 0.100
+vol_p = sqrt(1*0.15^2 + 0 + 0) = 0.150
+sharpe = 0.100 / 0.150 = 0.667
+```
+
+**Case 2: 100% B.** Just hold B.
+
+```
+ret_p = 0.0 * 0.10 + 1.0 * 0.06 = 0.060
+vol_p = sqrt(0 + 1*0.08^2 + 0) = 0.080
+sharpe = 0.060 / 0.080 = 0.750
+```
+
+**Case 3: 50/50.** Equal weights.
+
+```
+ret_p = 0.5 * 0.10 + 0.5 * 0.06 = 0.080
+vol_p = sqrt(0.25*0.15^2 + 0.25*0.08^2 + 2*0.5*0.5*0.3*0.15*0.08)
+      = sqrt(0.005625 + 0.0016 + 0.0018)
+      = sqrt(0.009025)
+      = 0.0950
+sharpe = 0.080 / 0.0950 = 0.842
+```
+
+Summary:
+
+| Weights (A,B) | Return | Vol | Sharpe |
+|---|---:|---:|---:|
+| (1.0, 0.0) | 10.0% | 15.0% | 0.667 |
+| (0.0, 1.0) | 6.0%  | 8.0%  | 0.750 |
+| (0.5, 0.5) | 8.0%  | 9.5%  | **0.842** |
+
+The 50/50 portfolio has a higher Sharpe than either asset alone. The
+correlation of 0.3 is the magic. Because the two assets are not
+perfectly correlated, their volatilities partially cancel when combined.
+The portfolio loses some return (it is between A's 10% and B's 6%) but
+its volatility drops more than proportionally.
+
+```python
+import numpy as np
+def port(w_a, w_b, r_a=0.10, r_b=0.06, v_a=0.15, v_b=0.08, corr=0.3):
+    r = w_a*r_a + w_b*r_b
+    v = np.sqrt(w_a**2*v_a**2 + w_b**2*v_b**2 + 2*w_a*w_b*corr*v_a*v_b)
+    return r, v, r/v
+for w in [(1,0), (0,1), (0.5,0.5)]:
+    print(w, port(*w))
+```
+
+The takeaway: diversification works because the volatility maths
+rewards combining assets that are not perfectly correlated. If
+correlation were 1.0 the 50/50 portfolio's vol would be exactly the
+weighted average (11.5%) and there would be no Sharpe boost. The
+lower the correlation, the bigger the free-lunch effect.
+
 ## Common pitfalls
 
 - Diversifying across assets that are all the same risk. Five tech

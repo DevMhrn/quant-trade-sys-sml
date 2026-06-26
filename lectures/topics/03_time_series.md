@@ -142,6 +142,72 @@ ax.plot(df.index, df["MA50"],  label="MA50")
 ax.legend(); ax.grid(alpha=0.3); plt.show()
 ```
 
+## Worked example
+
+A small 6-day price series. We will turn closes into returns, a 3-day
+moving average, the cumulative return, and a 3-day rolling volatility.
+
+Start with the closes:
+
+| Day | Close |
+|---:|---:|
+| 1 | 100.00 |
+| 2 | 102.00 |
+| 3 | 101.00 |
+| 4 | 105.00 |
+| 5 | 103.00 |
+| 6 | 108.00 |
+
+**Simple return** is `Close_t / Close_{t-1} - 1`. Day 1 has no prior, so
+it is undefined. Day 2: `102/100 - 1 = 0.0200`. Day 3: `101/102 - 1 = -0.0098`.
+Day 4: `105/101 - 1 = 0.0396`. Day 5: `103/105 - 1 = -0.0190`. Day 6:
+`108/103 - 1 = 0.0485`.
+
+**3-day SMA** is the average of the last three closes. The first valid
+value is at day 3. Day 3: `(100+102+101)/3 = 101.00`. Day 4:
+`(102+101+105)/3 = 102.67`. Day 5: `(101+105+103)/3 = 103.00`. Day 6:
+`(105+103+108)/3 = 105.33`.
+
+**Cumulative return** is `(1 + Return).cumprod() - 1`. We start at 0 on
+day 1 (no return yet). Day 2: `1.0200 - 1 = 0.0200`. Day 3:
+`1.0200 * 0.9902 - 1 = 0.0100`. Day 4:
+`1.0100 * 1.0396 - 1 = 0.0500`. Day 5:
+`1.0500 * 0.9810 - 1 = 0.0300`. Day 6:
+`1.0300 * 1.0485 - 1 = 0.0800`.
+
+**3-day rolling std** of returns. First valid value at day 4 (needs
+3 return observations). Day 4 uses returns from days 2, 3, 4 which are
+`0.0200, -0.0098, 0.0396`. The sample std is about `0.0250`. Day 5
+uses `-0.0098, 0.0396, -0.0190`, std about `0.0314`. Day 6 uses
+`0.0396, -0.0190, 0.0485`, std about `0.0367`.
+
+Everything in one table:
+
+| Day | Close | Return | SMA3 | CumReturn | Vol3 |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 100.00 | n/a     | n/a    | 0.0000 | n/a |
+| 2 | 102.00 | 0.0200  | n/a    | 0.0200 | n/a |
+| 3 | 101.00 | -0.0098 | 101.00 | 0.0100 | n/a |
+| 4 | 105.00 | 0.0396  | 102.67 | 0.0500 | 0.0250 |
+| 5 | 103.00 | -0.0190 | 103.00 | 0.0300 | 0.0314 |
+| 6 | 108.00 | 0.0485  | 105.33 | 0.0800 | 0.0367 |
+
+```python
+import pandas as pd
+close = pd.Series([100, 102, 101, 105, 103, 108], name="Close")
+df = pd.DataFrame({"Close": close})
+df["Return"]    = df["Close"].pct_change()
+df["SMA3"]      = df["Close"].rolling(3).mean()
+df["CumReturn"] = (1 + df["Return"].fillna(0)).cumprod() - 1
+df["Vol3"]      = df["Return"].rolling(3).std()
+print(df.round(4))
+```
+
+The takeaway: returns let you compare days of different prices, the SMA
+smooths the recent price into a trend line, the cumulative return shows
+where you are versus the start, and the rolling std tells you how noisy
+the recent returns have been. Four indicators, four lines of pandas.
+
 ## Common pitfalls
 
 - Plotting prices on different assets on the same chart without

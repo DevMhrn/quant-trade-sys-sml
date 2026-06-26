@@ -121,6 +121,52 @@ print(f"Total return: {total_return:.2%}")
 
 Each line of that snippet will be its own topic later.
 
+## Worked example
+
+Let us walk a full mini research cycle end to end. The hypothesis is one
+of the oldest in retail technical analysis:
+
+> Stocks tend to bounce after a sharp drop. Specifically, if a stock falls
+> more than 5 percent in 5 days, the next day tends to be positive.
+
+That is a vague claim. To research it we need to make it precise:
+
+- **Signal:** at the close of day t, if `(Close_t / Close_{t-5}) - 1 < -0.05`, fire a BUY for day t+1.
+- **Holding period:** one day. Exit at the close of day t+1.
+- **Return measured:** `Close_{t+1} / Close_t - 1`.
+
+Here is a small 8-day price series for a hypothetical stock.
+
+| Day | Close | 5-day change | Signal at close | Next-day return |
+|---:|---:|---:|:---:|---:|
+| 1 | 100.00 | n/a | 0 | n/a |
+| 2 | 101.00 | n/a | 0 | n/a |
+| 3 | 99.50  | n/a | 0 | n/a |
+| 4 | 98.00  | n/a | 0 | n/a |
+| 5 | 96.50  | n/a | 0 | n/a |
+| 6 | 94.00  | -6.00% | **1** (fires) | +1.06% |
+| 7 | 95.00  | -5.94% | **1** (fires) | -0.53% |
+| 8 | 94.50  | -4.55% | 0 | n/a |
+
+The signal fired twice. The next-day returns were `+1.06%` and `-0.53%`.
+Average follow-through return: `(1.06 - 0.53) / 2 = +0.27%`. Two trades
+is far too few to conclude anything, but the workflow is exactly what we
+will repeat on years of data.
+
+```python
+import pandas as pd
+prices = pd.Series([100, 101, 99.5, 98, 96.5, 94, 95, 94.5])
+chg5 = prices / prices.shift(5) - 1
+signal = (chg5 < -0.05).astype(int)
+nextret = prices.pct_change().shift(-1)
+print(pd.DataFrame({"Close": prices, "Chg5": chg5, "Sig": signal, "NextRet": nextret}))
+```
+
+The point is not the answer, it is the loop: hypothesis, signal definition,
+data, count of events, average outcome. This is what real quant research
+looks like in miniature, repeated on real data with thousands of events
+instead of two.
+
 ## Common pitfalls
 
 - Treating a good backtest as proof of a good strategy. Most good-looking

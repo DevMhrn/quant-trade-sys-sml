@@ -200,6 +200,75 @@ df_test["Position"] = df_test["Signal"].shift(1).fillna(0)
 df_test["StratRet"] = df_test["Position"] * df_test["Return"]
 ```
 
+## Worked example
+
+Building features from raw OHLCV is the messy, important part of ML.
+Here is a tiny example with 8 days of data. The goal: predict whether
+tomorrow's close will be higher than today's (binary target).
+
+Raw data (Close and Volume):
+
+| Day | Close | Volume |
+|---:|---:|---:|
+| 1 | 100.00 | 1.0M |
+| 2 | 102.00 | 1.2M |
+| 3 | 101.00 | 0.9M |
+| 4 | 105.00 | 1.5M |
+| 5 | 103.00 | 1.1M |
+| 6 | 108.00 | 1.8M |
+| 7 | 107.00 | 1.0M |
+| 8 | 110.00 | 1.4M |
+
+Build four features:
+
+1. `ret_5`: 5-day return = `Close_t / Close_{t-5} - 1`.
+2. `vol_5`: 5-day rolling std of daily returns.
+3. `vol_zscore_5`: today's volume minus 5-day mean volume, divided by std.
+4. `close_minus_ma5`: today's close minus the 5-day MA, divided by MA.
+
+The target `y` is `1 if Close_{t+1} > Close_t else 0`.
+
+Features are valid from day 6 onwards (need 5 days of history). The
+target is undefined for day 8 (no day 9).
+
+| Day | ret_5 | vol_5 | vol_z_5 | close_ma5 | y |
+|---:|---:|---:|---:|---:|:---:|
+| 6 | 0.080 | 0.024 | +1.42 | +0.048 | 0 |
+| 7 | 0.049 | 0.030 | -0.20 | +0.024 | 1 |
+| 8 | 0.089 | 0.028 | +0.65 | +0.039 | n/a |
+
+That is the entire X matrix and y vector. Three rows of features, two
+labelled (days 6 and 7 have a known y). Day 8's features are valid but
+its y is the future and we cannot use it for training.
+
+Looking at this tiny sample: day 6 had the highest 5-day return and a
+volume spike, but the next day fell (y=0). Day 7 had a modest return
+and slightly below average volume, and the next day rose (y=1). Two
+data points contradict the "high momentum predicts more upside" story.
+
+```python
+import pandas as pd
+df = pd.DataFrame({
+    "Close":  [100,102,101,105,103,108,107,110],
+    "Volume": [1e6,1.2e6,0.9e6,1.5e6,1.1e6,1.8e6,1.0e6,1.4e6],
+})
+ret = df["Close"].pct_change()
+df["ret_5"]        = df["Close"].pct_change(5)
+df["vol_5"]        = ret.rolling(5).std()
+df["vol_z_5"]      = (df["Volume"] - df["Volume"].rolling(5).mean()) / df["Volume"].rolling(5).std()
+df["close_minus_ma5"] = df["Close"] / df["Close"].rolling(5).mean() - 1
+df["y"] = (df["Close"].shift(-1) > df["Close"]).astype(int)
+print(df.dropna().round(3))
+```
+
+**Eight days is nowhere near enough**. With three labelled examples,
+any model would memorise them perfectly and tell you nothing about the
+future. In practice you need thousands of days, often tens of
+thousands, before the noise averages out. The point of this example is
+to show the **shape** of the data ML wants: a wide table of numeric
+features and a one-column target, with every row representing a single
+point in time.
+
 ## Common pitfalls
 
 - Shuffling time-series data before the train/test split. This

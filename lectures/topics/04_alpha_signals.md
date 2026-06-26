@@ -142,6 +142,70 @@ hit_rate = (trades > 0).mean()
 avg_trade = trades.mean()
 ```
 
+## Worked example
+
+A simple momentum signal on an 8-day price series. The rule is:
+
+> Signal at day t is 1 if `Close_t > MA3_t`, else 0. Position for day t+1
+> is `Signal_t` (the shift by one bar).
+
+Start with closes and compute the 3-day MA. MA3 is valid from day 3.
+
+| Day | Close | MA3 | Signal | Position (next day) |
+|---:|---:|---:|:---:|:---:|
+| 1 | 100.00 | n/a    | 0 | 0 |
+| 2 | 102.00 | n/a    | 0 | 0 |
+| 3 | 101.00 | 101.00 | 0 | 0 |
+| 4 | 105.00 | 102.67 | 1 | 0 |
+| 5 | 103.00 | 103.00 | 0 | 1 |
+| 6 | 108.00 | 105.33 | 1 | 0 |
+| 7 | 107.00 | 106.00 | 1 | 1 |
+| 8 | 110.00 | 108.33 | 1 | 1 |
+
+Note carefully: the Position column is the Signal shifted down by one row.
+Day 5's position (1) was decided by day 4's signal. This is the
+`signal.shift(1)` rule that keeps us from cheating.
+
+Now compute the strategy return per day. The return on day t is
+`Close_t / Close_{t-1} - 1`. The strategy return on day t is
+`Position_t * Return_t`.
+
+| Day | Return | Position | Strategy Return |
+|---:|---:|:---:|---:|
+| 2 | 0.0200  | 0 | 0.0000 |
+| 3 | -0.0098 | 0 | 0.0000 |
+| 4 | 0.0396  | 0 | 0.0000 |
+| 5 | -0.0190 | 1 | -0.0190 |
+| 6 | 0.0485  | 0 | 0.0000 |
+| 7 | -0.0093 | 1 | -0.0093 |
+| 8 | 0.0280  | 1 | 0.0280 |
+
+Three bars in the market: days 5, 7, 8. Per-bar hit rate:
+`(0 wins) / 3 in-market bars`. Wait, day 8 is positive. Recount:
+day 5 negative, day 7 negative, day 8 positive. Hit rate is `1/3 = 33%`.
+
+Total strategy return: `-0.0190 + -0.0093 + 0.0280 = -0.0003`. Almost
+flat. Buy and hold over the same 8 days: `(110 - 100) / 100 = 10%`.
+The strategy caught only a fraction of the move because it was out of
+the market on the big up days 4 and 6.
+
+```python
+import pandas as pd
+close = pd.Series([100, 102, 101, 105, 103, 108, 107, 110])
+ma3 = close.rolling(3).mean()
+signal = (close > ma3).astype(int)
+position = signal.shift(1).fillna(0)
+ret = close.pct_change().fillna(0)
+strat_ret = position * ret
+print("Total:", strat_ret.sum(), "BuyHold:", close.iloc[-1]/close.iloc[0]-1)
+```
+
+The takeaway: a simple momentum rule does not automatically beat buy
+and hold. On this tiny sample it underperformed by 10 percentage points
+in eight days. Eight days is too few to conclude anything, but the
+pattern (out of the market on the best days) is exactly why many
+filter-based strategies disappoint in real backtests.
+
 ## Common pitfalls
 
 - Optimising parameters until the backtest is beautiful. This is the

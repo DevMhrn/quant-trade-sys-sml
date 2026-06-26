@@ -157,6 +157,83 @@ A p-value below 0.05 is the standard threshold. Even then, run the
 test on rolling windows. A pair that was cointegrated five years ago
 may not be cointegrated today.
 
+## Worked example
+
+Coca-Cola (KO) and Pepsi (PEP) usually drift together. We will walk
+through one round trip on a 6-day toy series.
+
+| Day | KO | PEP | Spread = KO - PEP |
+|---:|---:|---:|---:|
+| 1 | 60.00 | 175.00 | -115.00 |
+| 2 | 60.50 | 174.00 | -113.50 |
+| 3 | 61.00 | 173.00 | -112.00 |
+| 4 | 62.00 | 172.00 | -110.00 |
+| 5 | 61.50 | 173.50 | -112.00 |
+| 6 | 60.50 | 175.00 | -114.50 |
+
+**Compute the spread's mean and std** over the full window (in real
+research this would be a rolling window over many more days):
+
+```
+mean(spread) = (-115 + -113.5 + -112 + -110 + -112 + -114.5) / 6 = -112.83
+std(spread)  approx 1.79
+```
+
+**Z-score** is `(spread - mean) / std` for each day:
+
+| Day | Spread | Z |
+|---:|---:|---:|
+| 1 | -115.00 | -1.21 |
+| 2 | -113.50 | -0.37 |
+| 3 | -112.00 | +0.46 |
+| 4 | -110.00 | +1.58 |
+| 5 | -112.00 | +0.46 |
+| 6 | -114.50 | -0.93 |
+
+**Entry rule**: open the trade when `|Z| > 1.5`. **Exit rule**: close
+when Z reverts to 0.
+
+On day 4, Z = +1.58 (just above 1.5). The spread is unusually wide on
+the upside, meaning KO is too expensive relative to PEP (or PEP is too
+cheap). Trade direction:
+
+- **Short KO** at 62.00, 1 share. Proceeds: $62.00.
+- **Long PEP** at 172.00, 1 share. Cost: $172.00.
+
+Hold the trade. On day 5 the z-score drops back toward zero (+0.46),
+crossing zero somewhere between day 5 and day 6. Close the trade on
+day 6 when Z = -0.93 (already past zero from above):
+
+- **Cover the short on KO** at 60.50, 1 share. Cost: $60.50.
+- **Sell the long on PEP** at 175.00, 1 share. Proceeds: $175.00.
+
+PnL:
+
+```
+KO leg:  +62.00 - 60.50 = +1.50 (shorted high, covered low, profit)
+PEP leg: -172.00 + 175.00 = +3.00 (bought low, sold high, profit)
+Total PnL = +1.50 + 3.00 = +4.50
+```
+
+Both legs were profitable here because the spread itself reverted. That
+is the whole point of pairs trading: you do not care about the absolute
+direction of KO or PEP, you care about the spread between them
+converging back to its mean.
+
+```python
+import pandas as pd
+ko  = pd.Series([60.0, 60.5, 61.0, 62.0, 61.5, 60.5])
+pep = pd.Series([175.0, 174.0, 173.0, 172.0, 173.5, 175.0])
+spread = ko - pep
+z = (spread - spread.mean()) / spread.std()
+print(pd.DataFrame({"KO": ko, "PEP": pep, "Spread": spread, "Z": z.round(2)}))
+```
+
+The takeaway: in a pair trade the profit comes from the spread
+reverting, not from picking a direction. If the spread keeps widening
+instead of reverting, both legs lose at once. That is the failure mode
+to watch.
+
 ## Common pitfalls
 
 - Treating correlation as cointegration. The lecture spends a full

@@ -156,6 +156,66 @@ A strategy that has Sharpe 0.8 on SPY, -0.2 on NVDA, and -0.5 on
 BTC-USD probably worked on SPY by coincidence. A strategy that has
 positive Sharpe across all three is more likely real.
 
+## Worked example
+
+Suppose we have a simple MA crossover strategy. We want to find the
+"best" short-window parameter. We test 10 values from 5 to 50 days,
+fitting the in-sample period (2018 to 2021) and then testing the
+out-of-sample period (2022 to 2024). We use the same long window of
+200 days throughout.
+
+| Short window | In-sample Sharpe | Out-of-sample Sharpe |
+|---:|---:|---:|
+| 5  | 1.4 | 0.10 |
+| 10 | 1.7 | 0.20 |
+| 15 | 1.9 | 0.30 |
+| 20 | 1.8 | 0.25 |
+| 25 | 1.6 | 0.15 |
+| 30 | 1.9 | 0.40 |
+| 37 | **2.1** | **0.05** |
+| 40 | 1.5 | 0.30 |
+| 45 | 1.2 | 0.20 |
+| 50 | 0.9 | 0.05 |
+
+Average in-sample Sharpe across all 10 windows: **1.60**.
+Average out-of-sample Sharpe across all 10 windows: **0.20**.
+
+The peak in-sample Sharpe (2.1) was at window=37. So a naive student
+would report "best strategy is MA crossover with short window 37,
+Sharpe 2.1, ready to deploy". That report is dangerously wrong.
+
+When we evaluate window=37 on the held-out test period, its Sharpe is
+**0.05**. Worse than the average of all the other windows. The reason:
+window=37 was the window that happened to fit the noise pattern of the
+2018-2021 period best. It had no special predictive structure for
+2022-2024.
+
+The average out-of-sample Sharpe (0.20) is a much better estimate of
+what we should expect in live trading. The peak in-sample number (2.1)
+is just the rightmost tail of a distribution of random fits to noise.
+
+```python
+# Pseudo-code for the experiment
+results = []
+for window in [5, 10, 15, 20, 25, 30, 37, 40, 45, 50]:
+    train_bt = backtest_on(train_data, short=window)
+    test_bt  = backtest_on(test_data,  short=window)
+    results.append((window, sharpe(train_bt), sharpe(test_bt)))
+```
+
+The honest result: this strategy does not have an edge worth deploying.
+A 0.20 Sharpe out-of-sample, paying real transaction costs, will almost
+certainly turn negative once live frictions hit it. Buy and hold over
+the same period delivered 0.67 Sharpe with no fitting at all.
+
+This is the most common failure mode in quant retail. Someone optimises
+a strategy on past data, picks the best-looking parameter, and ships
+it. The strategy underperforms or loses money in live trading, not
+because the idea was wrong, but because the optimisation extracted
+noise instead of signal. The fix is to evaluate the **distribution** of
+results across parameters, not just the peak, and to weight your
+confidence by the gap between in-sample and out-of-sample Sharpe.
+
 ## Common pitfalls
 
 - Tuning parameters on the test set. The moment you look at the
